@@ -1,0 +1,282 @@
+{
+  "name": "Day_1_Automation_data_pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -864,
+        48
+      ],
+      "id": "09ec72b0-73ec-415f-8914-68fc3d18f88e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pull CSV from the HTTP Request node (Azure Blob)\nconst csv = $('HTTP Request').item.json.data;\n\nconst rows = csv.trim().split('\\n').map(r => r.split(','));\nconst headers = rows[0];\nconst data = rows.slice(1);\nconst col = name => headers.indexOf(name);\nconst total = data.length;\n\nlet nullCustomer = 0, nullChurn = 0, badRevenue = 0;\n\nfor (const row of data) {\n  if (!row[col('customer_id')].trim()) nullCustomer++;\n  if (!row[col('churn_label')].trim()) nullChurn++;\n  const rev = parseFloat(row[col('revenue')]);\n  if (!isNaN(rev) && rev < -1000) badRevenue++;\n}\n\nreturn [{\n  json: {\n    total_rows: total,\n    null_customer_id: nullCustomer,\n    null_churn_label: nullChurn,\n    bad_revenue: badRevenue,\n    customer_id_pct: Math.round((nullCustomer/total)*100),\n    churn_label_pct: Math.round((nullChurn/total)*100),\n    status: (nullCustomer > 0 || nullChurn > 0 || badRevenue > 0) ? 'BLOCKED' : 'OK'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -512,
+        48
+      ],
+      "id": "b55eb928-0bb4-4832-bc35-f0594a439c6f",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B87K1M1P1",
+          "mode": "list",
+          "cachedResultName": "all-umashankar-k-h"
+        },
+        "text": "✅ *RetailCo daily data check — 9:00 AM* All checks passed. Data is clean and ready. - customer_id: no missing values - churn_label: no missing values   - revenue: all values within range",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a920596d-aaa9-42cd-afb1-3fd5d11fd0c7",
+      "name": "Send a message",
+      "webhookId": "359d919e-141b-46bd-ab70-fef8c3109b37",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "BKCYZEoPrgFP9QxF",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a data consultant writing a daily briefing for a business team.\n\nToday's RetailCo data check FAILED. Results:\n- Total rows: {{ $json.total_rows }}\n- customer_id missing: {{ $json.null_customer_id }} rows ({{ $json.customer_id_pct }}%)\n- churn_label missing: {{ $json.null_churn_label }} rows ({{ $json.churn_label_pct }}%)\n- revenue below -1000: {{ $json.bad_revenue }} rows\n\nWrite a 3-sentence plain English alert for the Head of Sales.\nRules: no jargon, no \"null\", state what is blocked and what the next step is."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        -112,
+        176
+      ],
+      "id": "0ec42d36-ef0e-4e05-85d8-780fb953e4da",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "BwrL4FbJYriBMgJk",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C0B87K1M1P1",
+          "mode": "list",
+          "cachedResultName": "all-umashankar-k-h"
+        },
+        "text": "=❌ *RetailCo data check FAILED — 9:00 AM*  Anthropic → {{ $json.output[0].content[0].text }} OpenAI    → {{ $json.choices[0].message.content }}",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        240,
+        176
+      ],
+      "id": "f72632d9-e1d9-4fa2-8518-12f578090c33",
+      "name": "Send a message1",
+      "webhookId": "5958dfe0-4830-43c6-92b2-2f28fa1119ce",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "BKCYZEoPrgFP9QxF",
+          "name": "Slack OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://iitr.blob.core.windows.net/retailco-data/retailco_sales_data.csv?sp=r&st=2026-06-08T16:29:46Z&se=2026-06-09T00:44:46Z&spr=https&sv=2026-02-06&sr=b&sig=szydyy39joZrSys%2FmIRusBIMD9VxvOIwotNkBRfJpp4%3D",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -704,
+        48
+      ],
+      "id": "584ded80-b7e8-46a9-a2b7-991eec43fa0a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1890c444-2d84-4212-86aa-19725b7f0a07",
+              "leftValue": "={{ $json.null_customer_id }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "e8dfc0f6-af78-4984-98c6-c62a49a3ca27",
+              "leftValue": "={{ $json.null_churn_label }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "a6dba405-417a-4ef4-8ccf-34f0a622eb9f",
+              "leftValue": "={{ $json.bad_revenue }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "197a547b-a155-497d-9575-22952ef5fd41",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -304,
+        48
+      ],
+      "id": "594d7915-9127-48c0-a8e8-5f13c9a5ac39",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9e2f7a6e-b509-4bc1-aa04-5969c0d16599",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bdeb7358cbb3f1926c6ed9ea014321ff87bd3a1d49cc0fddd336a9ea0e73739e"
+  },
+  "nodeGroups": [],
+  "id": "wcBFBftgVpU5Mcdu",
+  "tags": []
+}
