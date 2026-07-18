@@ -1,0 +1,15 @@
+{
+	"name": "umashankarkh-df",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "australiaeast",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "3994f7ec-d3d9-41d2-b01b-0143919d3f21",
+		"tenantId": "4020cb3d-7a97-47db-a7cf-405934fdefd8"
+	}
+}
